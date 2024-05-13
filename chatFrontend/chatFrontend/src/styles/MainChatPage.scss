@@ -1,0 +1,192 @@
+.chat-container {
+  height: 100vh;
+  display: flex;
+  justify-content: space-between;
+}
+
+.chat-window-header {
+  font-size: 1.2em;
+  margin-bottom: 10px;
+}
+
+.message-container {
+  margin-bottom: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  max-width: 70%; /* Максимальная ширина контейнера сообщения */
+}
+
+.sender-message {
+  background-color: #e3effd !important; /* Цвет фона для сообщений отправителя */
+  align-self: flex-end; /* Выравнивание сообщений отправителя вправо */
+}
+
+.receiver-message {
+  background-color: #f6f6f6; /* Цвет фона для сообщений получателя */
+  align-self: flex-start; /* Выравнивание сообщений получателя влево */
+}
+
+.message-text {
+  margin: 0;
+}
+
+.input-container {
+  margin-top: auto;
+  background-color: #f6f6f6;
+  display: flex;
+  margin-bottom: 10px;
+  align-items: center;
+  position: fixed; /* Фиксированное позиционирование */
+  bottom: 0; /* Прижимаем к низу */
+  width: 78%; /* Занимаем всю ширину */
+}
+
+.input-container input {
+  flex: 1;
+  width: calc(
+    100% - 70px
+  ); /* Ширина поля ввода сообщения с учетом кнопки Send */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+  transition: border-color 0.3s ease;
+}
+
+.input-container button {
+  width: 70px;
+  margin-left: 10px;
+  padding: 10px 20px;
+  border-radius: 5px;
+  border: none;
+  transition: background-color 0.3s ease;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.input-container input:focus {
+  border-color: #007bff;
+}
+
+/* Стили для списка пользователей */
+.users-list {
+  background-color: #f0f0f0;
+  width: 20%; /* Ширина списка пользователей */
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin: 0;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.users-list h1 {
+  margin-bottom: 20px;
+  font-size: 1.5em;
+}
+
+.users-list :hover {
+  background-color: #dcdcdc;
+}
+
+/* Стили для окна чата */
+.chat-window {
+  background-color: #fff;
+  height: 90vh; /* Высота окна чата */
+  overflow-y: auto; /* Включаем скролл */
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  width: 85%; /* Ширина окна чата */
+  padding: 20px;
+}
+
+.chat-window-header {
+  color: #007bff;
+  font-size: 1.3em;
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+}
+
+.message-container {
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 10px;
+}
+
+.sender-message {
+  background-color: #007bff;
+  color: #fff;
+}
+
+.receiver-message {
+  background-color: #f0f0f0;
+}
+
+.message-text {
+  display: flex;
+  margin: 0;
+  color: #333;
+}
+
+.message-words {
+  font-size: 16px;
+}
+
+.message-date {
+  position: relative;
+  top: 8px;
+  left: 4px;
+  font-size: 11px;
+}
+
+/* Стили для окна чата */
+
+.message-container {
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 10px;
+  max-width: 70%;
+  overflow: hidden;
+}
+
+.sender-message {
+  background-color: #007bff;
+  color: #fff;
+  align-self: flex-end;
+}
+
+.receiver-message {
+  background-color: #f0f0f0;
+  align-self: flex-start;
+}
+
+/* Дополнительные стили для определения, кто отправил сообщение */
+.message-sender {
+  position: absolute;
+  bottom: -20px;
+  font-size: 0.8em;
+  color: #888;
+}
+
+.sender-message .message-sender {
+  right: 10px;
+}
+
+.receiver-message .message-sender {
+  left: 10px;
+}
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+}
+.image-smile {
+  opacity: 0.5;
+  transition: 0.2s linear;
+}
+
+.image-smile:hover {
+  opacity: 1;
+}
