@@ -2,6 +2,7 @@ import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../dbconfig";
 import { io } from "../../index";
 import { User } from "./user";
+import { Conversation } from "./conversation";
 
 export { io } from "../../index";
 
@@ -52,6 +53,10 @@ class Message extends Model {
   static associate() {
     this.belongsTo(User, { as: "sender", foreignKey: "senderId" });
     this.belongsTo(User, { as: "recipient", foreignKey: "recipientId" });
+    this.belongsTo(Conversation, {
+      foreignKey: "conversationId",
+      as: "conversation",
+    });
   }
 
   static async createMessage(

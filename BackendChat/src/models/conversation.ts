@@ -31,7 +31,7 @@ class Conversation extends Model {
 
   static associate() {
     this.belongsToMany(User, {
-      through: "UserConversation",
+      through: "ConversationParticipant",
       foreignKey: "conversationId",
       otherKey: "userId",
     });
@@ -43,7 +43,13 @@ class Conversation extends Model {
     participants: User[]
   ): Promise<Conversation> {
     const conversation = await Conversation.create({ name });
-    await conversation.addUsers(participants);
+
+    // Извлекаем идентификаторы пользователей из объектов участников
+    const userIds = participants.map((participant) => participant.id);
+
+    // Добавляем пользователей к беседе, используя идентификаторы
+    await conversation.addUsers(userIds);
+
     return conversation;
   }
 }

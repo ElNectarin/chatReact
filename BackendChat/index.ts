@@ -12,6 +12,8 @@ import bodyParser from "body-parser";
 import { Op, QueryTypes } from "sequelize";
 import { Message } from "./src/models/message";
 import { Conversation } from "./src/models/conversation";
+import { ConversationParticipant } from "./src/models/conversationParticipant";
+import { getConversationsForUser } from "./src/service/consersationService";
 // import messageRoutes from "./src/routes/MessageRoute";
 
 declare module "express-session" {
@@ -42,6 +44,14 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 app.use(cors());
+
+User.initializeModel();
+Message.initializeModel();
+Conversation.initializeModel();
+
+User.associate();
+Message.associate();
+Conversation.associate();
 
 async function initializeDatabase() {
   try {
@@ -146,6 +156,8 @@ app.post("/logout", async (req, res) => {
 
 app.post("/conversations", async (req: Request, res: Response) => {
   const { name, participants } = req.body;
+  console.log("Name:", name);
+  console.log("Participants:", participants);
 
   try {
     const conversation = await Conversation.createConversation(
@@ -156,6 +168,22 @@ app.post("/conversations", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error creating conversation:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+app.get("/getConversation", async (req: Request, res: Response) => {
+  try {
+    const userIdString = req.query.userId as string; // Получаем userId из параметров запроса и преобразуем к строке
+    const userId = parseInt(userIdString, 10); // Преобразуем userId из строки в число
+    console.log("User ID:", userId);
+
+    // Вызываем функцию, чтобы получить список бесед для пользователя
+    const userConversations = await getConversationsForUser(userId);
+
+    res.json(userConversations);
+  } catch (error) {
+    console.error("Error fetching user conversations:", error);
+    res.status(500).json({ error: "Error fetching user conversations" });
   }
 });
 
@@ -195,8 +223,6 @@ io.use((socket: Socket, next: (err?: Error | undefined) => void) => {
   );
 });
 
-const rooms: { [key: string]: string[] } = {};
-
 io.on("connection", async (socket: Socket) => {
   const request = socket.request as Request;
   try {
@@ -217,7 +243,7 @@ io.on("connection", async (socket: Socket) => {
     socket.on("message", async (data) => {
       try {
         console.log("Received message data:", data);
-        const { recipientId, senderId, text, sessionId } = data;
+        const { recipientId, senderId, text, sessionId, conversationId } = data;
 
         // Извлекаем сессию из базы данных или кэша на основе sessionId
         const session = await User.findOne({ where: { sessionId: sessionId } });
@@ -243,39 +269,89 @@ io.on("connection", async (socket: Socket) => {
           return;
         }
 
-        const recipient = await User.findByPk(recipientId);
+        if (!conversationId) {
+          console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", conversationId);
+          const recipient = await User.findByPk(recipientId);
 
-        if (!recipient) {
-          console.error("Recipient not found in database:", recipientId);
-          return;
-        }
-
-        const message = await sender.sendMessage(recipientId, text);
-        message.senderId = senderId; // Добавляем senderId к сообщению
-        message.sentAt = new Date();
-        await message.save();
-
-        // Проверяем, если отправитель не является также получателем, и отправляем сообщение получателю
-        if (senderId !== recipientId) {
-          const recipientSocket = io.sockets.sockets.get(recipient.socketId);
-          if (recipientSocket) {
-            recipientSocket.emit("message", { recipientId, senderId, text });
-          } else {
-            console.error(
-              "Recipient socket not found for recipientId:",
-              recipientId
-            );
-            // Обработка случая, когда сокет получателя не найден
+          if (!recipient) {
+            console.error("Recipient not found in database:", recipientId);
+            return;
           }
-        }
+          const message = await sender.sendMessage(
+            recipientId,
+            text,
+            conversationId
+          );
+          message.senderId = senderId; // Добавляем senderId к сообщению
+          message.sentAt = new Date();
+          await message.save();
 
-        // Отправляем сообщение отправителю
-        const senderSocket = io.sockets.sockets.get(socket.id);
-        if (senderSocket) {
-          senderSocket.emit("message", { recipientId, senderId, text });
+          // Проверяем, если отправитель не является также получателем, и отправляем сообщение получателю
+          if (senderId !== recipientId) {
+            const recipientSocket = io.sockets.sockets.get(recipient.socketId);
+            if (recipientSocket) {
+              recipientSocket.emit("message", { recipientId, senderId, text });
+            } else {
+              console.error(
+                "Recipient socket not found for recipientId:",
+                recipientId
+              );
+            }
+          }
+
+          // Отправляем сообщение отправителю
+          const senderSocket = io.sockets.sockets.get(socket.id);
+          if (senderSocket) {
+            senderSocket.emit("message", { recipientId, senderId, text });
+          } else {
+            console.error("Sender socket not found for senderId:", senderId);
+            // Обработка случая, когда сокет отправителя не найден
+          }
         } else {
-          console.error("Sender socket not found for senderId:", senderId);
-          // Обработка случая, когда сокет отправителя не найден
+          const conversation = await Conversation.findByPk(conversationId, {
+            include: [User], // Включаем модель ConversationParticipant
+          });
+
+          console.log("conversation!!!!!!!!!!!!!!!!!", conversation);
+
+          if (!conversation) {
+            console.error("Беседа не найдена в базе данных:", conversationId);
+            return;
+          }
+
+          const message = await sender.sendMessage(
+            senderId,
+            conversationId,
+            text
+          );
+          message.sentAt = new Date();
+          await message.save();
+
+          // Получаем всех участников беседы из модели ConversationParticipant
+          const participants = await ConversationParticipant.findAll({
+            where: {
+              conversationId: conversation.id,
+              userId: {
+                [Op.ne]: senderId, // Исключаем отправителя из получателей сообщения
+              },
+            },
+          });
+
+          participants.forEach(async (participant) => {
+            const participantSocket = io.sockets.sockets.get(socket.id);
+            if (participantSocket) {
+              participantSocket.emit("message", {
+                text,
+                senderId,
+                conversationId,
+              });
+            } else {
+              console.error(
+                "Сокет участника не найден для userId:",
+                participant.userId
+              );
+            }
+          });
         }
       } catch (error) {
         console.error("Error handling message:", error);

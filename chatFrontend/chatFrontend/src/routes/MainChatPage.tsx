@@ -16,6 +16,11 @@ interface Message {
   sentAt: string;
 }
 
+interface Conversation {
+  id: number;
+  name: string;
+}
+
 interface User {
   id: number;
   username: string;
@@ -35,6 +40,9 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
   const senderId = localStorage.getItem("id");
   const sessionId = localStorage.getItem("sessionId");
   const [visibleEmoji, setVisibleEmoji] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversation, setSelectedConversation] =
+    useState<Conversation | null>(null);
 
   useEffect(() => {
     // Слушаем событие нового сообщения
@@ -44,6 +52,7 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
 
     // Получаем список пользователей с сервера
     fetchUsersList();
+    fetchConversation();
 
     return () => {
       socket.off("message"); // Отписываемся от события нового сообщения
@@ -69,10 +78,27 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
     try {
       const response = await axios.get("http://localhost:3001/userslist");
       const data = response.data;
-      console.log(data);
       setUsers(data);
     } catch (error) {
       console.error("Error fetching users:", error);
+    }
+  };
+
+  const fetchConversation = async () => {
+    try {
+      const response = await axios.get(
+        "http://localhost:3001/getConversation",
+        {
+          params: {
+            userId: senderId,
+          },
+        }
+      );
+      const data = response.data;
+      console.log(data);
+      setConversations(data);
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
     }
   };
 
@@ -92,6 +118,22 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
     setInputValue("");
   };
 
+  const sendMessageonConversation = () => {
+    if (!selectedConversation) return;
+    const newMessage = {
+      text: inputValue,
+      senderId: Number(senderId),
+      sessionId: sessionId,
+      conversationId: selectedConversation.id,
+    };
+
+    // Отправляем сообщение на сервер
+    socket.emit("message", newMessage);
+
+    // Очищаем поле ввода
+    setInputValue("");
+  };
+
   useEffect(() => {
     console.log("Selected user has been updated:", selectedUser);
   }, [selectedUser]);
@@ -99,6 +141,13 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
 
   const handleUserClick = (user: User) => {
     setSelectedUser(user);
+    setSelectedConversation(null);
+  };
+
+  const handleConversationClick = (conversation: Conversation) => {
+    setSelectedConversation(conversation);
+    setSelectedUser(null);
+    console.log(selectedConversation);
   };
 
   function handleEmojiSelect(emojiObject) {
@@ -165,6 +214,46 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
             >
               <p style={{ fontSize: "2vh" }}>{user.username}</p>
               <p style={{ fontSize: "1.6vh" }}>{getLastMessage(user.id)}</p>
+            </div>
+          </div>
+        ))}
+        {conversations.map((conversation) => (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              borderTop: "1px solid",
+              paddingTop: "10px",
+              paddingBottom: "10px",
+            }}
+            onClick={() => {
+              handleConversationClick(conversation);
+            }}
+          >
+            <div
+              style={{
+                borderRadius: "50%",
+                border: "1px solid",
+                height: "4vh",
+                width: "4vh",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <p style={{ marginLeft: "1.2vh" }}>
+                {conversation.name.charAt(0)}
+              </p>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                marginLeft: "7px",
+              }}
+              key={conversation.id}
+            >
+              <p style={{ fontSize: "2vh" }}>{conversation.name}</p>
+              {/* <p style={{ fontSize: "1.6vh" }}>{getLastMessage(user.id)}</p> */}
             </div>
           </div>
         ))}
@@ -237,6 +326,66 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
               }}
             />
             <button onClick={sendMessage}>
+              <img src={sendPng} alt="send" />
+            </button>
+          </div>
+        </div>
+      ) : selectedConversation ? (
+        <div
+          className="chat-window"
+          style={{ background: theme.palette.background.paper }}
+        >
+          <h2 className="chat-window-header">{selectedConversation.name}</h2>
+          <div className="chat-messages">
+            {messages.map((message) => {
+              const sentDate = moment(message.sentAt);
+              const formatDate = sentDate.format("hh:mm");
+
+              const isSender = message.senderId === Number(senderId);
+              return (
+                <div
+                  key={message.id}
+                  className={`message-container ${
+                    isSender ? "sender-message" : "receiver-message"
+                  }`}
+                >
+                  <div className="message-text">
+                    <p className="message-words">{message.text}</p>
+                    <p className="message-date">{formatDate}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="input-container">
+            {visibleEmoji && (
+              <EmojiPicker
+                onEmojiClick={handleEmojiSelect}
+                style={{ position: "absolute", bottom: "7vh", left: "3vh" }}
+              />
+            )}
+            <button
+              onClick={() => setVisibleEmoji(!visibleEmoji)}
+              className="image-smile"
+            >
+              <img src={smilePng} alt="smile" />{" "}
+            </button>
+            <input
+              type="text"
+              placeholder="Написать сообщение..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key == "Enter") {
+                  sendMessageonConversation();
+                } else if (e.key == "Tab") {
+                  setVisibleEmoji(!visibleEmoji);
+                } else {
+                  return;
+                }
+              }}
+            />
+            <button onClick={sendMessageonConversation}>
               <img src={sendPng} alt="send" />
             </button>
           </div>
