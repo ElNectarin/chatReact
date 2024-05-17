@@ -25,7 +25,7 @@ class ConversationParticipant extends Model {
           allowNull: false,
         },
       },
-      { sequelize, modelName: "ConversationParticipant" }
+      { sequelize, modelName: "ConversationParticipants" }
     );
   }
 

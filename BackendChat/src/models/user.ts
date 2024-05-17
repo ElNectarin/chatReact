@@ -70,7 +70,7 @@ class User extends Model {
       as: "receivedMessages",
     });
     this.belongsToMany(Conversation, {
-      through: "ConversationParticipant",
+      through: "ConversationParticipants",
       foreignKey: "userId",
       otherKey: "conversationId",
       as: "conversations",

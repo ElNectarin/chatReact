@@ -14,7 +14,6 @@ import { Message } from "./src/models/message";
 import { Conversation } from "./src/models/conversation";
 import { ConversationParticipant } from "./src/models/conversationParticipant";
 import { getConversationsForUser } from "./src/service/consersationService";
-// import messageRoutes from "./src/routes/MessageRoute";
 
 declare module "express-session" {
   interface SessionData {
@@ -226,7 +225,7 @@ io.use((socket: Socket, next: (err?: Error | undefined) => void) => {
 io.on("connection", async (socket: Socket) => {
   const request = socket.request as Request;
   try {
-    const sessionId = socket.handshake.query.sessionId; // извлеките sessionId из запроса
+    const sessionId = socket.handshake.query.sessionId;
 
     console.log("socket.handshake.query", socket.handshake.query);
     console.log("sessionId", sessionId);
@@ -237,8 +236,6 @@ io.on("connection", async (socket: Socket) => {
       user.socketId = socket.id; // Сохраняем socketId пользователя в базе данных
       await user.save();
     }
-
-    // Обработка других событий, например "message", "disconnect", и т.д.
 
     socket.on("message", async (data) => {
       try {
@@ -270,7 +267,6 @@ io.on("connection", async (socket: Socket) => {
         }
 
         if (!conversationId) {
-          console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", conversationId);
           const recipient = await User.findByPk(recipientId);
 
           if (!recipient) {
@@ -308,22 +304,14 @@ io.on("connection", async (socket: Socket) => {
             // Обработка случая, когда сокет отправителя не найден
           }
         } else {
-          const conversation = await Conversation.findByPk(conversationId, {
-            include: [User], // Включаем модель ConversationParticipant
-          });
-
-          console.log("conversation!!!!!!!!!!!!!!!!!", conversation);
+          const conversation = await Conversation.findByPk(conversationId);
 
           if (!conversation) {
             console.error("Беседа не найдена в базе данных:", conversationId);
             return;
           }
 
-          const message = await sender.sendMessage(
-            senderId,
-            conversationId,
-            text
-          );
+          const message = await sender.sendMessage(0, text, conversationId);
           message.sentAt = new Date();
           await message.save();
 
@@ -335,6 +323,7 @@ io.on("connection", async (socket: Socket) => {
                 [Op.ne]: senderId, // Исключаем отправителя из получателей сообщения
               },
             },
+            include: [User],
           });
 
           participants.forEach(async (participant) => {
@@ -357,6 +346,7 @@ io.on("connection", async (socket: Socket) => {
         console.error("Error handling message:", error);
       }
     });
+
     socket.on("requestHistory", async () => {
       try {
         // Извлекаем сессию из базы данных или кэша на основе sessionId
@@ -370,17 +360,39 @@ io.on("connection", async (socket: Socket) => {
           return;
         }
 
+        // Получаем список групповых чатов, в которых участвует пользователь
+        const conversations = await Conversation.findAll({
+          include: [
+            {
+              model: User,
+              where: { id: session.id },
+            },
+          ],
+        });
+
+        const conversationIds = conversations.map(
+          (conversation) => conversation.id
+        );
+
         // Получаем историю сообщений для текущего пользователя
         const historyMessages = await Message.findAll({
           where: {
             [Op.or]: [{ senderId: session.id }, { recipientId: session.id }],
           },
           order: [["createdAt", "DESC"]],
-          limit: 15, // Предположим, что мы хотим получить последние 10 сообщений
+          limit: 50,
         });
 
+        const groupMessages = await Message.findAll({
+          where: { conversationId: conversationIds },
+          order: [["createdAt", "DESC"]],
+          limit: 50,
+        });
+
+        const allMessages = [...historyMessages, ...groupMessages];
+
         // Отправляем историю сообщений клиенту
-        socket.emit("history", historyMessages);
+        socket.emit("history", allMessages);
       } catch (error) {
         console.error("Error handling requestHistory:", error);
       }

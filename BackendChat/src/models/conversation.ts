@@ -31,7 +31,7 @@ class Conversation extends Model {
 
   static associate() {
     this.belongsToMany(User, {
-      through: "ConversationParticipant",
+      through: "ConversationParticipants",
       foreignKey: "conversationId",
       otherKey: "userId",
     });

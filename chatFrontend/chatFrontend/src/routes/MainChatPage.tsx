@@ -14,6 +14,7 @@ interface Message {
   senderId: number;
   recipientId: number;
   sentAt: string;
+  conversationId: number;
 }
 
 interface Conversation {
@@ -129,6 +130,8 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
 
     // Отправляем сообщение на сервер
     socket.emit("message", newMessage);
+
+    console.log(newMessage);
 
     // Очищаем поле ввода
     setInputValue("");
@@ -263,9 +266,12 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
           className="chat-window"
           style={{ background: theme.palette.background.paper }}
         >
-          <h2 className="chat-window-header">
-            Chatting with {selectedUser.username}
-          </h2>
+          <div>
+            <h2 className="chat-window-header">
+              Chatting with {selectedUser.username}
+            </h2>
+          </div>
+
           <div className="chat-messages">
             {messages.map((message) => {
               const sentDate = moment(message.sentAt);
@@ -335,26 +341,33 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
           className="chat-window"
           style={{ background: theme.palette.background.paper }}
         >
-          <h2 className="chat-window-header">{selectedConversation.name}</h2>
+          <div>
+            <h2 className="chat-window-header" style={{ color: "#000" }}>
+              {selectedConversation.name}
+            </h2>
+          </div>
+
           <div className="chat-messages">
             {messages.map((message) => {
               const sentDate = moment(message.sentAt);
               const formatDate = sentDate.format("hh:mm");
 
               const isSender = message.senderId === Number(senderId);
-              return (
-                <div
-                  key={message.id}
-                  className={`message-container ${
-                    isSender ? "sender-message" : "receiver-message"
-                  }`}
-                >
-                  <div className="message-text">
-                    <p className="message-words">{message.text}</p>
-                    <p className="message-date">{formatDate}</p>
+              if (message.conversationId === selectedConversation.id) {
+                return (
+                  <div
+                    key={message.id}
+                    className={`message-container ${
+                      isSender ? "sender-message" : "receiver-message"
+                    }`}
+                  >
+                    <div className="message-text">
+                      <p className="message-words">{message.text}</p>
+                      <p className="message-date">{formatDate}</p>
+                    </div>
                   </div>
-                </div>
-              );
+                );
+              }
             })}
           </div>
           <div className="input-container">
