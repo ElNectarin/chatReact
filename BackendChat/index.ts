@@ -20,6 +20,20 @@ declare module "express-session" {
     userId?: number;
   }
 }
+interface Participant {
+  id: number;
+  userId: number;
+  conversationId: number;
+  participant: {
+    id: number;
+    username: string;
+    sessionId: string;
+    socketId: string;
+    password: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+}
 
 const port = process.env.PORT || 3001;
 
@@ -260,7 +274,6 @@ io.on("connection", async (socket: Socket) => {
         }
 
         const sender = await User.findByPk(session.id);
-        console.log("sender", sender);
         if (!sender) {
           console.error("Sender not found in database for userId:", session.id);
           return;
@@ -323,11 +336,15 @@ io.on("connection", async (socket: Socket) => {
                 [Op.ne]: senderId, // Исключаем отправителя из получателей сообщения
               },
             },
-            include: [User],
+            include: [{ model: User, as: "participant" }],
           });
 
-          participants.forEach(async (participant) => {
-            const participantSocket = io.sockets.sockets.get(socket.id);
+          for (const participant of participants as unknown as Participant[]) {
+            const ConversationParticipant = participant.participant.socketId;
+            console.log("ConversationParticipant", ConversationParticipant);
+            const participantSocket = io.sockets.sockets.get(
+              participant.participant.socketId
+            );
             if (participantSocket) {
               participantSocket.emit("message", {
                 text,
@@ -340,7 +357,28 @@ io.on("connection", async (socket: Socket) => {
                 participant.userId
               );
             }
-          });
+
+            console.log("participantSocket", participantSocket);
+          }
+
+          // participants.forEach(async (participant: any) => {
+          //   console.log("participant!!!!!!!!!!!!!!!!!!!!!!", participant);
+          //   const participantSocket = io.sockets.sockets.get(
+          //     String(participant.participant.User.socketId)
+          //   );
+          //   if (participantSocket) {
+          //     participantSocket.emit("message", {
+          //       text,
+          //       senderId,
+          //       conversationId,
+          //     });
+          //   } else {
+          //     console.error(
+          //       "Сокет участника не найден для userId:",
+          //       participant.userId
+          //     );
+          //   }
+          // });
         }
       } catch (error) {
         console.error("Error handling message:", error);
@@ -392,7 +430,22 @@ io.on("connection", async (socket: Socket) => {
         const allMessages = [...historyMessages, ...groupMessages];
 
         // Отправляем историю сообщений клиенту
-        socket.emit("history", allMessages);
+        socket.emit("history", removeDuplicates(allMessages));
+
+        function removeDuplicates(messages: Message[]): Message[] {
+          const uniqueMessages: Message[] = [];
+
+          for (let i = 0; i < messages.length; i++) {
+            const message = messages[i];
+
+            // Проверяем, есть ли уже такое сообщение в uniqueMessages
+            if (!uniqueMessages.some((m) => m.id === message.id)) {
+              uniqueMessages.push(message);
+            }
+          }
+
+          return uniqueMessages;
+        }
       } catch (error) {
         console.error("Error handling requestHistory:", error);
       }

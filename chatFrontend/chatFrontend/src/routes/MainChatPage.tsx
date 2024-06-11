@@ -7,6 +7,10 @@ import moment from "moment";
 import sendPng from "../assets/pngwing.com.png";
 import smilePng from "../assets/smile.png";
 import { useTheme } from "@mui/material/styles";
+import Popup from "reactjs-popup";
+import GroupCreator from "./GroupCreator";
+import { CreateButton } from "../components/CreateButton";
+import plusPng from "../assets/plus.png";
 
 interface Message {
   id: number;
@@ -58,7 +62,7 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
     return () => {
       socket.off("message"); // Отписываемся от события нового сообщения
     };
-  }, [socket, selectedUser, senderId]);
+  }, [socket, selectedUser, senderId, selectedConversation]);
 
   useEffect(() => {
     // Слушаем событие истории сообщений
@@ -104,29 +108,27 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
   };
 
   const sendMessage = () => {
-    if (!selectedUser) return;
-    const newMessage = {
-      text: inputValue,
-      senderId: Number(senderId),
-      recipientId: selectedUser.id,
-      sessionId: sessionId,
-    };
+    if (!inputValue.trim()) return; // Проверка на пустое сообщение
 
-    // Отправляем сообщение на сервер
-    socket.emit("message", newMessage);
-
-    // Очищаем поле ввода
-    setInputValue("");
-  };
-
-  const sendMessageonConversation = () => {
-    if (!selectedConversation) return;
-    const newMessage = {
+    let newMessage = {
       text: inputValue,
       senderId: Number(senderId),
       sessionId: sessionId,
-      conversationId: selectedConversation.id,
-    };
+    } as any;
+
+    if (selectedUser) {
+      newMessage = {
+        ...newMessage,
+        recipientId: selectedUser.id,
+      }; // Если выбран пользователь, отправляем ему личное сообщение
+    } else if (selectedConversation) {
+      newMessage = {
+        ...newMessage,
+        conversationId: selectedConversation.id,
+      }; // Если выбрана беседа, отправляем сообщение в групповой чат
+    } else {
+      return; // При отсутствии выбранного пользователя или беседы не отправляем сообщение
+    }
 
     // Отправляем сообщение на сервер
     socket.emit("message", newMessage);
@@ -139,7 +141,8 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
 
   useEffect(() => {
     console.log("Selected user has been updated:", selectedUser);
-  }, [selectedUser]);
+  }, [selectedUser, selectedConversation]);
+
   console.log("messages", messages);
 
   const handleUserClick = (user: User) => {
@@ -169,6 +172,18 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
     }
   }
 
+  function getLastMessageDate(userId: number) {
+    const userMessages = messages.filter(
+      (message) => message.senderId === userId || message.recipientId === userId
+    );
+    if (userMessages.length > 0) {
+      const lastMessage = userMessages[userMessages.length - 1];
+      return moment(lastMessage.sentAt).fromNow();
+    } else {
+      return "No messages yet";
+    }
+  }
+
   return (
     <div
       className="chat-container"
@@ -181,7 +196,33 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
           color: theme.palette.text.primary,
         }}
       >
-        <h1>Chat</h1>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <h1>Chat</h1>
+          <Popup
+            modal
+            nested
+            trigger={
+              <button>
+                <img
+                  src={plusPng}
+                  alt="plusPng"
+                  height={20}
+                  width={20}
+                  title="Создать беседу"
+                />
+              </button>
+            }
+          >
+            <GroupCreator users={users} />
+          </Popup>
+        </div>
+
         {users.map((user) => (
           <div
             style={{
@@ -216,6 +257,7 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
               key={user.id}
             >
               <p style={{ fontSize: "2vh" }}>{user.username}</p>
+              <p>{getLastMessageDate(user.id)}</p>
               <p style={{ fontSize: "1.6vh" }}>{getLastMessage(user.id)}</p>
             </div>
           </div>
@@ -261,7 +303,96 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
           </div>
         ))}
       </div>
-      {selectedUser ? (
+      {selectedUser || selectedConversation ? (
+        <div
+          className="chat-window"
+          style={{ background: theme.palette.background.paper }}
+        >
+          <div>
+            <h2 className="chat-window-header" style={{ color: "#000" }}>
+              {selectedUser
+                ? `Chatting with ${selectedUser.username}`
+                : selectedConversation && selectedConversation.name
+                ? selectedConversation.name
+                : ""}
+            </h2>
+          </div>
+
+          <div className="chat-messages">
+            {messages.map((message) => {
+              const sentDate = moment(message.sentAt);
+              const formatDate = sentDate.format("hh:mm");
+
+              const isSender = message.senderId === Number(senderId);
+              const isReceiver = message.recipientId === Number(senderId);
+              const isBetweenSelectedUsers =
+                selectedUser &&
+                ((isSender && message.recipientId === selectedUser.id) ||
+                  (isReceiver && message.senderId === selectedUser.id));
+
+              if (
+                (selectedUser && isBetweenSelectedUsers) ||
+                (selectedConversation &&
+                  selectedConversation.id &&
+                  message.conversationId === selectedConversation.id)
+              ) {
+                return (
+                  <div
+                    key={message.id}
+                    className={`message-container ${
+                      isSender ? "sender-message" : "receiver-message"
+                    }`}
+                  >
+                    <div className="message-text">
+                      <p className="message-words">{message.text}</p>
+                      {selectedConversation ? (
+                        <p className="message-senderid">
+                          id {message.senderId}
+                        </p>
+                      ) : null}
+                      <p className="message-date">{formatDate}</p>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })}
+            <div className="input-container">
+              {visibleEmoji && (
+                <EmojiPicker
+                  onEmojiClick={handleEmojiSelect}
+                  style={{ position: "absolute", bottom: "7vh", left: "3vh" }}
+                />
+              )}
+              <button
+                onClick={() => setVisibleEmoji(!visibleEmoji)}
+                className="image-smile"
+              >
+                <img src={smilePng} alt="smile" />{" "}
+              </button>
+              <input
+                type="text"
+                placeholder="Написать сообщение..."
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key == "Enter") {
+                    sendMessage();
+                  } else if (e.key == "Tab") {
+                    setVisibleEmoji(!visibleEmoji);
+                  } else {
+                    return;
+                  }
+                }}
+              />
+              <button onClick={sendMessage}>
+                <img src={sendPng} alt="send" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {/* {selectedUser ? (
         <div
           className="chat-window"
           style={{ background: theme.palette.background.paper }}
@@ -353,7 +484,10 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
               const formatDate = sentDate.format("hh:mm");
 
               const isSender = message.senderId === Number(senderId);
-              if (message.conversationId === selectedConversation.id) {
+              if (
+                selectedConversation &&
+                message.conversationId === selectedConversation.id
+              ) {
                 return (
                   <div
                     key={message.id}
@@ -368,6 +502,7 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
                   </div>
                 );
               }
+              return null;
             })}
           </div>
           <div className="input-container">
@@ -414,7 +549,7 @@ const MainChatPage: React.FC<Props> = ({ socket }) => {
         >
           <h1>Выберите диалог</h1>
         </div>
-      )}
+      )} */}
     </div>
   );
 };

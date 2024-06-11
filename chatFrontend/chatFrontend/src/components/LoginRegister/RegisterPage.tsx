@@ -44,14 +44,29 @@ const RegisterPage: React.FC<Props> = ({ page, setPage }) => {
   return (
     <div className="wrapper fadeInDown">
       <div id="formContent">
-        <h2
-          className="inactive underlineHover"
-          onClick={() => setPage(page - 1)}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginTop: "2vh",
+            marginBottom: "2vh",
+          }}
         >
-          {" "}
-          Sign In{" "}
-        </h2>
-        <h2 className="active">Sign Up </h2>
+          <h2
+            className="inactive underlineHover"
+            style={{ cursor: "pointer" }}
+            onClick={() => setPage(page - 1)}
+          >
+            {" "}
+            Sign In{" "}
+          </h2>
+          <h2
+            className=" active"
+            style={{ cursor: "pointer", marginLeft: "2vh" }}
+          >
+            Sign Up{" "}
+          </h2>
+        </div>
 
         <form onSubmit={handleRegisterSubmit}>
           <input
@@ -64,7 +79,7 @@ const RegisterPage: React.FC<Props> = ({ page, setPage }) => {
             onChange={handleSetUsername}
           />
           <input
-            type="text"
+            type="password"
             id="password"
             className="fadeIn third"
             name="login"

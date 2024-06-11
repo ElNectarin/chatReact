@@ -30,7 +30,7 @@ class ConversationParticipant extends Model {
   }
 
   static associate() {
-    this.belongsTo(User, { foreignKey: "userId" });
+    this.belongsTo(User, { foreignKey: "userId", as: "participant" });
     this.belongsTo(Conversation, { foreignKey: "conversationId" });
   }
 }

@@ -81,7 +81,6 @@
 }
 
 .users-list h1 {
-  margin-bottom: 20px;
   font-size: 1.5em;
 }
 
@@ -138,6 +137,13 @@
   position: relative;
   top: 8px;
   left: 4px;
+  font-size: 11px;
+}
+
+.message-senderid {
+  position: relative;
+  top: -6px;
+  left: 27px;
   font-size: 11px;
 }
 
